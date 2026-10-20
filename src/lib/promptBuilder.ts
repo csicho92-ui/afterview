@@ -44,60 +44,45 @@ const DEPTH_GUIDE: Record<keyof typeof DEPTHS, string> = {
   detailed: '질문 하나하나를 자세히 분석하고, 필요한 곳에는 개선된 답변 예시를 포함해 주세요.',
 }
 
-type ResultItem = { id: string; text: string; supersededBy?: AnalysisMode }
-
-const RESULT_ITEMS: Record<AnalysisMode, ResultItem[]> = {
+const RESULT_ITEMS: Record<AnalysisMode, string[]> = {
   overall: [
-    { id: 'summary', text: '전체 면접의 핵심 요약' },
-    { id: 'perQuestion', text: '질문별 의도 및 답변 분석', supersededBy: 'answers' },
-    { id: 'best', text: '가장 잘한 답변 3개와 그 이유 (기록된 질문이 3개 미만이면 기록된 범위 안에서)' },
-    { id: 'worst', text: '가장 아쉬운 답변 3개와 개선안', supersededBy: 'answers' },
-    { id: 'strengths', text: '면접 전반에 드러난 핵심 강점' },
-    { id: 'gaps', text: '보완이 필요한 역량' },
-    { id: 'fitBrief', text: '조직 적합성에 대한 관찰과 추가 확인 사항', supersededBy: 'fit' },
-    { id: 'plan', text: '다음 면접을 위한 구체적인 행동 계획', supersededBy: 'nextPrep' },
-    { id: 'closing', text: '종합 회고' },
+    '전체 면접의 핵심 요약',
+    '질문별 의도와 답변 평가',
+    '가장 잘한 답변과 가장 아쉬운 답변 (각각 최대 3개, 아쉬운 답변에는 개선안 포함)',
+    '면접에서 드러난 강점과 보완이 필요한 역량',
+    '조직 적합성에 대한 관찰과 추가로 확인할 점',
+    '다음 면접을 위한 구체적인 행동 계획과 종합 회고',
   ],
   answers: [
-    { id: 'intent', text: '질문별 면접관의 예상 의도 (가능성으로 설명)' },
-    { id: 'logic', text: '질문별 답변의 논리 구조, 설득력, 근거의 구체성 평가' },
-    { id: 'rewrite', text: '아쉬운 답변별 개선 답변 예시 (실제 발언의 의미를 유지)' },
-    { id: 'pattern', text: '여러 답변에 반복해서 나타나는 습관이나 패턴' },
+    '질문별 면접관의 예상 의도 (가능성으로 설명)',
+    '질문별 답변의 논리 구조, 설득력, 근거의 구체성 평가',
+    '아쉬운 답변별 개선 답변 예시 (실제 발언의 의미를 유지)',
+    '여러 답변에 반복해서 나타나는 습관이나 패턴',
   ],
   fit: [
-    { id: 'orgTraits', text: '면접에서 드러난 조직의 특성 (확인된 사실과 추정을 구분)' },
-    { id: 'expectGap', text: '면접 전 기대와 면접 후 인상의 차이' },
-    { id: 'concerns', text: '우려 사항별로 사실 여부를 확인할 수 있는 구체적인 질문' },
-    { id: 'decision', text: '입사 결정 전에 점검할 체크리스트' },
+    '면접에서 드러난 조직의 특성 (확인된 사실과 추정을 구분)',
+    '면접 전 기대와 면접 후 인상의 차이',
+    '우려 사항별로 사실 여부를 확인할 수 있는 구체적인 질문',
+    '입사 결정 전에 점검할 체크리스트',
   ],
   nextPrep: [
-    { id: 'top3', text: '다음 면접 전에 가장 먼저 개선할 3가지' },
-    { id: 'structure', text: '이번에 받은 질문을 바탕으로 한 답변 구조 (모범 답변 예시 포함)' },
-    { id: 'followUps', text: '이어질 수 있는 꼬리 질문과 준비 방향' },
-    { id: 'study', text: '보완을 위한 학습 과제와 1주일 준비 계획' },
+    '다음 면접 전에 가장 먼저 개선할 3가지',
+    '이번에 받은 질문을 바탕으로 한 답변 구조 (모범 답변 예시 포함)',
+    '이어질 수 있는 꼬리 질문과 준비 방향',
+    '보완을 위한 학습 과제와 1주일 준비 계획',
   ],
 }
 
-const MODE_ORDER: AnalysisMode[] = ['overall', 'answers', 'fit', 'nextPrep']
+export const resultItems = (mode: AnalysisMode) => RESULT_ITEMS[mode]
 
-export function resultItems(modes: AnalysisMode[]): string[] {
-  const selected = MODE_ORDER.filter((m) => modes.includes(m))
-  const list = selected.length ? selected : (['overall'] as AnalysisMode[])
-  const seen = new Set<string>()
-  const out: string[] = []
-  for (const m of list) {
-    for (const item of RESULT_ITEMS[m]) {
-      if (item.supersededBy && list.includes(item.supersededBy)) continue
-      if (seen.has(item.id)) continue
-      seen.add(item.id)
-      out.push(item.text)
-    }
-  }
-  // 종합 회고는 항상 마지막에 둔다
-  const closing = RESULT_ITEMS.overall.at(-1)!.text
-  if (out.includes(closing)) out.push(...out.splice(out.indexOf(closing), 1))
-  return out
+/** 선택 순서대로 정리한 분석 목적. 첫 번째가 주 분석이다. */
+export function orderedModes(modes: AnalysisMode[]): AnalysisMode[] {
+  const unique = [...new Set(modes)].filter((m) => m in RESULT_ITEMS)
+  return unique.length ? unique : ['overall']
 }
+
+const CONTINUE_RULE =
+  '답변이 길어져 한 번에 모두 쓰기 어렵다면 항목을 생략하거나 줄이지 마세요. 쓸 수 있는 데까지 충실히 작성한 뒤, 마지막에 몇 번 항목까지 작성했는지 밝히고 "계속"이라고 입력하면 이어서 쓰겠다고 안내해 주세요.'
 
 const PRINCIPLES = [
   '무조건 긍정적으로 평가하지 마세요.',
@@ -167,9 +152,8 @@ const formatDate = (d: string) => {
 }
 
 export function buildPrompt(iv: Interview): string {
-  const { modes, tone, depth } = iv.analysisSettings
-  const activeModes = MODE_ORDER.filter((m) => modes.includes(m))
-  const modeList = activeModes.length ? activeModes : (['overall'] as AnalysisMode[])
+  const { tone, depth } = iv.analysisSettings
+  const [primary, ...rest] = orderedModes(iv.analysisSettings.modes)
   const qs = recordedQuestions(iv)
   const r = iv.reflection
   const atmosphere = [iv.atmosphereTags.join(', '), clean(iv.atmosphere)].filter(Boolean).join(' / ')
@@ -193,7 +177,8 @@ export function buildPrompt(iv: Interview): string {
     ]),
     join([
       '## 분석 목표',
-      ...modeList.map((m) => `- **${ANALYSIS_MODES[m].label}**: ${MODE_GOALS[m]}`),
+      `- **${ANALYSIS_MODES[primary].label}**: ${MODE_GOALS[primary]}`,
+      rest.length ? `- 이번 답변에서는 이 목표에만 집중해 주세요. 분석이 끝나면 같은 기록을 다른 관점(${rest.map((m) => ANALYSIS_MODES[m].label).join(', ')})으로 보는 질문이 이어집니다.` : null,
       clean(r.focusRequest) ? line('지원자가 특히 자세히 알고 싶은 점', r.focusRequest) : null,
     ]),
     join(['## 분석 방식', `- 톤 (${TONES[tone]}): ${TONE_GUIDE[tone]}`, `- 깊이 (${DEPTHS[depth]}): ${DEPTH_GUIDE[depth]}`, '- 톤과 관계없이 기록에 근거해 평가해 주세요.']),
@@ -220,13 +205,58 @@ export function buildPrompt(iv: Interview): string {
       ? join(['## 기록의 한계', ...warnings.map((w) => `- ${w}`), '- 이 한계를 고려해 단정적인 평가를 피하고, 추가로 확인하면 좋을 정보를 알려 주세요.'])
       : null,
     join(['## 분석 원칙', ...PRINCIPLES.map((p, i) => `${i + 1}. ${p}`)]),
-    join(['## 원하는 결과', ...resultItems(modeList).map((t, i) => `${i + 1}. ${t}`)]),
+    join(['## 원하는 결과', ...resultItems(primary).map((t, i) => `${i + 1}. ${t}`)]),
     join([
+      CONTINUE_RULE,
+      '',
       '최종 분석은 자연스러운 한국어로 작성하세요.',
       '지원자를 일방적으로 위로하지 말고, 확인 가능한 근거를 중심으로 실질적인 조언을 제공하세요.',
     ]),
   ]
   return sections.filter(Boolean).join('\n\n') + '\n'
+}
+
+export type PromptStep = { mode: AnalysisMode; text: string }
+
+/** 같은 대화창에 이어서 붙여넣는 후속 프롬프트. 면접 기록은 다시 넣지 않는다. */
+export function buildFollowUp(iv: Interview, mode: AnalysisMode): string {
+  const { tone, depth } = iv.analysisSettings
+  return (
+    join([
+      `앞에서 공유한 면접 회고 기록을 바탕으로, 이번에는 **${ANALYSIS_MODES[mode].label}** 관점으로 분석해 주세요.`,
+      '',
+      '## 분석 목표',
+      MODE_GOALS[mode],
+      '',
+      '## 원하는 결과',
+      ...resultItems(mode).map((t, i) => `${i + 1}. ${t}`),
+      '',
+      '## 참고',
+      '- 앞의 분석과 같은 분석 원칙을 지켜 주세요. 특히 기록에 없는 사실을 만들지 말고, 추정은 추정이라고 밝혀 주세요.',
+      '- 앞 답변과 겹치는 내용은 한 줄로만 언급하고 새로운 관점에 집중해 주세요.',
+      `- 톤: ${TONES[tone]} / 깊이: ${DEPTHS[depth]}`,
+      `- ${CONTINUE_RULE}`,
+    ]) + '\n'
+  )
+}
+
+/** 주 분석 프롬프트와 후속 프롬프트를 순서대로 돌려준다 */
+export function buildPromptSteps(iv: Interview): PromptStep[] {
+  const [primary, ...rest] = orderedModes(iv.analysisSettings.modes)
+  return [{ mode: primary, text: buildPrompt(iv) }, ...rest.map((mode) => ({ mode, text: buildFollowUp(iv, mode) }))]
+}
+
+/** Markdown 파일로 저장할 때는 모든 단계를 순서대로 묶는다 */
+export function buildMarkdownExport(iv: Interview): string {
+  const steps = buildPromptSteps(iv)
+  if (steps.length === 1) return steps[0].text
+  return steps
+    .map((s, i) =>
+      i === 0
+        ? `<!-- 1단계: ${ANALYSIS_MODES[s.mode].label} — 먼저 이 내용을 붙여넣으세요 -->\n\n${s.text}`
+        : `---\n\n<!-- ${i + 1}단계: ${ANALYSIS_MODES[s.mode].label} — 앞의 답변이 끝난 뒤 같은 대화창에 붙여넣으세요 -->\n\n${s.text}`,
+    )
+    .join('\n')
 }
 
 /** 프롬프트에서 개인정보로 보이는 패턴을 찾는다 */

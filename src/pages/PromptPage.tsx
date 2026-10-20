@@ -5,7 +5,7 @@ import { AutoTextarea } from '../components/Fields'
 import { AppShell, StepFooter, StepHeader } from '../components/Layout'
 import { useInterviewStore } from '../hooks/useInterviewStore'
 import { copyText, downloadText } from '../lib/exportData'
-import { assessRecord, buildPrompt, detectSensitive, promptFileName } from '../lib/promptBuilder'
+import { assessRecord, buildMarkdownExport, buildPromptSteps, detectSensitive, orderedModes, promptFileName, type PromptStep } from '../lib/promptBuilder'
 import { ANALYSIS_MODES, DEPTHS, TONES, type AnalysisMode, type AnalysisSettings } from '../types/interview'
 import { NotFound } from './NotFound'
 
@@ -25,7 +25,8 @@ export function PromptPage() {
   const [expanded, setExpanded] = useState(false)
   const previewRef = useRef<HTMLTextAreaElement>(null)
 
-  const prompt = useMemo(() => (iv ? buildPrompt(iv) : ''), [iv])
+  const steps = useMemo(() => (iv ? buildPromptSteps(iv) : []), [iv])
+  const prompt = steps[0]?.text ?? ''
   const assessment = useMemo(() => (iv ? assessRecord(iv) : null), [iv])
   const sensitive = useMemo(() => detectSensitive(prompt), [prompt])
 
@@ -37,9 +38,11 @@ export function PromptPage() {
     setCopyState('idle')
   }
   const toggleMode = (m: AnalysisMode) => {
-    const has = settings.modes.includes(m)
-    if (has && settings.modes.length === 1) return // 최소 1개 유지
-    setSettings({ modes: has ? settings.modes.filter((x) => x !== m) : [...settings.modes, m] })
+    const current = orderedModes(settings.modes)
+    const has = current.includes(m)
+    if (has && current.length === 1) return // 최소 1개 유지
+    // 고른 순서가 곧 분석 순서다. 첫 번째가 주 분석.
+    setSettings({ modes: has ? current.filter((x) => x !== m) : [...current, m] })
   }
 
   const markCompleted = () => iv.status !== 'completed' && update(iv.id, { status: 'completed' })
@@ -58,11 +61,13 @@ export function PromptPage() {
   }
 
   const onDownload = () => {
-    downloadText(promptFileName(iv), prompt, 'text/markdown')
+    downloadText(promptFileName(iv), buildMarkdownExport(iv), 'text/markdown')
     markCompleted()
   }
 
-  const modeLabels = settings.modes.map((m) => ANALYSIS_MODES[m].label).join(', ')
+  const modeOrder = orderedModes(settings.modes)
+  const primaryLabel = ANALYSIS_MODES[modeOrder[0]].label
+  const modeLabels = modeOrder.length > 1 ? `${primaryLabel} 외 ${modeOrder.length - 1}` : primaryLabel
 
   return (
     <AppShell>
@@ -82,7 +87,7 @@ export function PromptPage() {
           <dd className="mt-1 text-xl font-bold">{assessment.reflectionCount}개</dd>
         </div>
         <div className="px-2 py-4">
-          <dt className="text-xs text-muted">분석 모드</dt>
+          <dt className="text-xs text-muted">분석</dt>
           <dd className="mt-1.5 truncate text-sm font-semibold" title={modeLabels}>{modeLabels}</dd>
         </div>
       </dl>
@@ -104,10 +109,15 @@ export function PromptPage() {
       <section className="card mb-6 space-y-5 p-4 sm:p-6" aria-labelledby="settings-title">
         <h2 id="settings-title" className="text-lg font-bold">어떤 회고를 받고 싶나요?</h2>
         <fieldset>
-          <legend className="field-label">분석 목적 <span className="font-normal text-muted">(여러 개 선택 가능)</span></legend>
+          <legend className="field-label">분석 목적</legend>
+          <p className="-mt-0.5 mb-3 text-sm leading-relaxed text-muted">
+            AI가 한 번에 한 가지에 집중하도록 <strong className="font-semibold text-charcoal">처음 고른 목적만 첫 프롬프트에 담아요.</strong> 더 고른
+            목적은 같은 대화창에 이어서 붙여넣는 짧은 후속 프롬프트로 만들어 드려요.
+          </p>
           <div className="grid gap-2 sm:grid-cols-2">
             {(Object.keys(ANALYSIS_MODES) as AnalysisMode[]).map((m) => {
-              const on = settings.modes.includes(m)
+              const pos = modeOrder.indexOf(m)
+              const on = pos >= 0
               return (
                 <button
                   key={m}
@@ -116,11 +126,16 @@ export function PromptPage() {
                   onClick={() => toggleMode(m)}
                   className={`flex min-h-16 items-start gap-3 rounded-xl border p-3.5 text-left transition-colors ${on ? 'border-navy bg-navy/[0.04]' : 'border-line hover:border-navy/40'}`}
                 >
-                  <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border ${on ? 'border-navy bg-navy text-ivory' : 'border-line'}`}>
-                    {on && <Check className="size-3.5" aria-hidden="true" />}
+                  <span className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${on ? 'border-navy bg-navy text-ivory' : 'border-line'}`} aria-hidden="true">
+                    {on && pos + 1}
                   </span>
-                  <span>
-                    <span className="block font-semibold">{ANALYSIS_MODES[m].label}</span>
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-x-2 font-semibold">
+                      {ANALYSIS_MODES[m].label}
+                      {on && (
+                        <span className={`text-xs font-medium ${pos === 0 ? 'text-navy' : 'text-sage'}`}>{pos === 0 ? '주 분석' : '이어서 묻기'}</span>
+                      )}
+                    </span>
                     <span className="block text-sm text-muted">{ANALYSIS_MODES[m].description}</span>
                   </span>
                 </button>
@@ -166,7 +181,9 @@ export function PromptPage() {
 
       <section aria-labelledby="preview-title" className="mb-6">
         <div className="mb-2 flex items-baseline justify-between">
-          <h2 id="preview-title" className="text-sm font-semibold">생성된 프롬프트 미리보기</h2>
+          <h2 id="preview-title" className="text-sm font-semibold">
+            {steps.length > 1 ? `1단계 · ${primaryLabel} 프롬프트` : '생성된 프롬프트 미리보기'}
+          </h2>
           <span className="text-xs text-muted">{prompt.length.toLocaleString()}자</span>
         </div>
         <div className="relative">
@@ -187,7 +204,7 @@ export function PromptPage() {
       <section className="card space-y-4 p-4 sm:p-6">
         <button type="button" onClick={onCopy} className="btn-primary btn min-h-14 w-full text-base">
           {copyState === 'copied' ? <Check className="size-5" aria-hidden="true" /> : <Copy className="size-5" aria-hidden="true" />}
-          {copyState === 'copied' ? '복사했어요' : 'AI 회고 프롬프트 복사하기'}
+          {copyState === 'copied' ? '복사했어요' : steps.length > 1 ? '1단계 프롬프트 복사하기' : 'AI 회고 프롬프트 복사하기'}
         </button>
         <p role="status" aria-live="polite" className="text-center text-sm">
           {copyState === 'copied' && <span className="text-sage">클립보드에 복사했어요. 아래에서 AI를 열고 붙여넣어 주세요.</span>}
@@ -214,6 +231,20 @@ export function PromptPage() {
         </div>
       </section>
 
+      {steps.length > 1 && (
+        <section className="mt-6 space-y-3" aria-labelledby="followup-title">
+          <div>
+            <h2 id="followup-title" className="text-lg font-bold">이어서 묻기</h2>
+            <p className="mt-1 text-sm leading-relaxed text-muted">
+              AI가 앞 단계 답변을 끝까지 마치면, <strong className="font-semibold text-charcoal">같은 대화창에</strong> 순서대로 붙여넣으세요. 면접 기록은 다시 넣지 않아도 돼요.
+            </p>
+          </div>
+          {steps.slice(1).map((st, i) => (
+            <FollowUpCard key={st.mode} step={st} index={i + 2} />
+          ))}
+        </section>
+      )}
+
       <AiReviewSection interviewId={iv.id} content={iv.aiReview.content} savedAt={iv.aiReview.savedAt} />
 
       <StepFooter>
@@ -223,6 +254,42 @@ export function PromptPage() {
         <Link to="/" className="btn-secondary btn">처음으로</Link>
       </StepFooter>
     </AppShell>
+  )
+}
+
+function FollowUpCard({ step, index }: { step: PromptStep; index: number }) {
+  const [state, setState] = useState<CopyState>('idle')
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const label = ANALYSIS_MODES[step.mode].label
+  const onCopy = async () => {
+    const ok = await copyText(step.text)
+    setState(ok ? 'copied' : 'failed')
+    if (!ok) requestAnimationFrame(() => ref.current?.select())
+  }
+  return (
+    <article className="card p-4 sm:p-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="font-semibold">
+          <span className="mr-1.5 text-sm font-bold text-sage">{index}단계</span>
+          {label}
+        </h3>
+        <button type="button" onClick={onCopy} className="btn-secondary btn min-h-10 shrink-0 text-sm">
+          {state === 'copied' ? <Check className="size-4" aria-hidden="true" /> : <Copy className="size-4" aria-hidden="true" />}
+          {state === 'copied' ? '복사했어요' : `${index}단계 복사`}
+        </button>
+      </div>
+      <textarea
+        ref={ref}
+        readOnly
+        value={step.text}
+        aria-label={`${index}단계 ${label} 후속 프롬프트`}
+        className="input block h-36 w-full resize-y bg-[#fcfbf9] font-mono text-[13px] leading-relaxed"
+      />
+      <p role="status" aria-live="polite" className="mt-2 text-sm">
+        {state === 'copied' && <span className="text-sage">복사했어요. 앞 답변이 끝난 대화창에 붙여넣어 주세요.</span>}
+        {state === 'failed' && <span className="text-terracotta">자동 복사가 막혀 있어요. 선택된 내용을 직접 복사해 주세요.</span>}
+      </p>
+    </article>
   )
 }
 

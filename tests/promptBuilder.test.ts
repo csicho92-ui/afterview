@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assessRecord, buildPrompt, detectSensitive, NOT_RECORDED, resultItems } from '../src/lib/promptBuilder'
+import { assessRecord, buildMarkdownExport, buildPrompt, buildPromptSteps, detectSensitive, NOT_RECORDED, resultItems } from '../src/lib/promptBuilder'
 import { parseInterviews } from '../src/lib/storage'
 import { createInterview, createQuestion, type Interview } from '../src/types/interview'
 
@@ -58,15 +58,38 @@ describe('buildPrompt', () => {
     expect(assessRecord(sample()).questionCount).toBe(2)
   })
 
-  it('분석 모드에 따라 결과 항목이 바뀐다', () => {
-    const overall = resultItems(['overall'])
-    expect(overall).toHaveLength(9)
-    expect(overall.at(-1)).toBe('종합 회고')
-    const combined = resultItems(['overall', 'fit'])
-    expect(combined).not.toContain('조직 적합성에 대한 관찰과 추가 확인 사항')
-    expect(combined.some((t) => t.includes('체크리스트'))).toBe(true)
-    expect(combined.at(-1)).toBe('종합 회고')
-    expect(resultItems(['answers'])).toHaveLength(4)
+  it('종합 회고는 6개 항목으로 요청한다', () => {
+    const p = buildPrompt(sample())
+    expect(resultItems('overall')).toHaveLength(6)
+    expect(p).toContain('6. 다음 면접을 위한 구체적인 행동 계획과 종합 회고')
+    const results = p.slice(p.indexOf('## 원하는 결과'))
+    expect(results).not.toContain('7. ')
+    expect(p).toContain('"계속"이라고 입력하면') // 길어질 때 이어 쓰기 지시
+  })
+
+  it('여러 목적을 고르면 첫 번째만 주 프롬프트에 담고 나머지는 후속 프롬프트로 나눈다', () => {
+    const iv = { ...sample(), analysisSettings: { modes: ['fit', 'overall', 'nextPrep'] as const, tone: 'critical' as const, depth: 'normal' as const } }
+    const steps = buildPromptSteps({ ...iv, analysisSettings: { ...iv.analysisSettings, modes: [...iv.analysisSettings.modes] } })
+    expect(steps.map((s) => s.mode)).toEqual(['fit', 'overall', 'nextPrep'])
+    const [main, second, third] = steps.map((s) => s.text)
+    expect(main).toContain('**조직 적합성 분석**')
+    expect(main).toContain('입사 결정 전에 점검할 체크리스트')
+    expect(main).not.toContain('1주일 준비 계획')
+    expect(main).toContain('이 목표에만 집중')
+    // 후속 프롬프트는 기록을 다시 담지 않는다
+    expect(second).toContain('**종합 회고** 관점')
+    expect(second).not.toContain('자기소개를 해 주세요.')
+    expect(second).toContain('톤: 비판적인')
+    expect(third).toContain('1주일 준비 계획')
+  })
+
+  it('목적이 하나면 단계도 하나이고 Markdown은 프롬프트 그대로다', () => {
+    const iv = sample()
+    expect(buildPromptSteps(iv)).toHaveLength(1)
+    expect(buildPrompt(iv)).not.toContain('이 목표에만 집중')
+    expect(buildMarkdownExport(iv)).toBe(buildPrompt(iv))
+    const multi = { ...iv, analysisSettings: { ...iv.analysisSettings, modes: ['overall' as const, 'answers' as const] } }
+    expect(buildMarkdownExport(multi)).toContain('2단계: 답변 집중 분석')
   })
 
   it('수정한 내용으로 다시 생성된다', () => {

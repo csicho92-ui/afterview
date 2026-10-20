@@ -72,12 +72,16 @@ describe('핵심 사용자 흐름', () => {
     expect(preview.value).toContain('면접 직후의 기분: 무난했다')
     expect(screen.getByText(/붙여넣기 전에 개인정보를 확인해 주세요/)).toBeTruthy()
 
-    // 분석 모드 변경 시 결과 항목이 바뀐다
+    // 목적을 추가로 고르면 주 프롬프트는 그대로, 후속 프롬프트가 생긴다
     await user.click(screen.getByRole('button', { name: /조직 적합성 분석/ }))
-    expect(preview.value).toContain('입사 결정 전에 점검할 체크리스트')
+    expect(preview.value).not.toContain('입사 결정 전에 점검할 체크리스트')
+    const followUp = screen.getByLabelText('2단계 조직 적합성 분석 후속 프롬프트') as HTMLTextAreaElement
+    expect(followUp.value).toContain('입사 결정 전에 점검할 체크리스트')
+    await user.click(screen.getByRole('button', { name: '2단계 복사' }))
+    expect(writeText).toHaveBeenLastCalledWith(followUp.value)
 
     // AC-05: 복사
-    await user.click(screen.getByRole('button', { name: /AI 회고 프롬프트 복사하기/ }))
+    await user.click(screen.getByRole('button', { name: /1단계 프롬프트 복사하기/ }))
     expect(writeText).toHaveBeenCalledWith(preview.value)
     expect(screen.getByText(/클립보드에 복사했어요/)).toBeTruthy()
 
