@@ -1,4 +1,4 @@
-import { ArrowRight, Lock, Plus } from 'lucide-react'
+import { Archive, ArrowRight, Lock, Plus } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AppShell } from '../components/Layout'
 import { InterviewListItem } from '../components/InterviewListItem'
@@ -21,9 +21,15 @@ export function HomePage() {
         <p className="mt-5 max-w-md text-[17px] leading-relaxed text-muted">
           기억나는 질문과 답변을 기록해 보세요. AI가 분석하기 좋은 회고 자료로 정리해 드립니다.
         </p>
-        <button type="button" onClick={() => navigate('/interview/new')} className="btn-primary btn mt-8 min-h-13 px-6 text-base">
-          <Plus className="size-5" aria-hidden="true" /> 새 면접 기록하기
-        </button>
+        <div className="mt-8 flex flex-wrap gap-2.5">
+          <button type="button" onClick={() => navigate('/interview/new')} className="btn-primary btn min-h-13 px-6 text-base">
+            <Plus className="size-5" aria-hidden="true" /> 새 면접 기록하기
+          </button>
+          <Link to="/archive" className="btn-secondary btn min-h-13 px-5 text-base">
+            <Archive className="size-5" aria-hidden="true" /> 기록 보관함
+            {interviews.length > 0 && <span className="text-sm font-medium text-muted tabular-nums">{interviews.length}개</span>}
+          </Link>
+        </div>
       </section>
 
       {recent.length > 0 && (

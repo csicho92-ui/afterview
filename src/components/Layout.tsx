@@ -33,16 +33,34 @@ export function SaveIndicator() {
   )
 }
 
+/** 어느 화면에서든 눈에 띄는 기록 보관함 버튼 (기록 개수 표시) */
+function ArchiveButton() {
+  const { interviews } = useInterviewStore()
+  return (
+    <NavLink
+      to="/archive"
+      className={({ isActive }) =>
+        `btn min-h-10 gap-1.5 px-3.5 text-sm ${isActive ? 'bg-navy text-ivory' : 'border border-navy/25 bg-paper text-navy hover:border-navy hover:bg-navy/[0.04]'}`
+      }
+    >
+      <Archive className="size-4" aria-hidden="true" />
+      기록 보관함
+      {interviews.length > 0 && (
+        <span className="ml-0.5 min-w-5 rounded-full bg-sage-soft px-1.5 text-center text-xs font-bold leading-5 text-[#3f4f43] tabular-nums">
+          {interviews.length}
+        </span>
+      )}
+    </NavLink>
+  )
+}
+
 export function AppShell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-20 border-b border-line/70 bg-ivory/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between gap-3 px-4">
           <Logo />
-          <NavLink to="/archive" className="btn-ghost btn -mr-2 px-3 text-sm">
-            <Archive className="size-4" aria-hidden="true" />
-            기록 보관함
-          </NavLink>
+          <ArchiveButton />
         </div>
       </header>
       <main className={`mx-auto px-4 pb-32 pt-6 sm:pt-10 ${wide ? 'max-w-4xl' : 'max-w-3xl'}`}>{children}</main>
