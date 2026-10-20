@@ -1,0 +1,59 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+@import 'tailwindcss';
+
+@theme {
+  --color-ivory: #f8f7f4;
+  --color-paper: #ffffff;
+  --color-charcoal: #25282d;
+  --color-muted: #5f646b;
+  --color-line: #e4e1da;
+  --color-navy: #35485d;
+  --color-navy-deep: #283849;
+  --color-sage: #849889;
+  --color-sage-soft: #e9eee9;
+  --color-terracotta: #bd816c;
+  --color-terracotta-soft: #f6ebe6;
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--color-ivory);
+  color: var(--color-charcoal);
+  font-family: var(--font-sans);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+:focus-visible { outline: 2px solid var(--color-navy); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+
+@layer components {
+  .field-label { @apply block text-sm font-semibold text-charcoal mb-1.5; }
+  .field-hint { @apply text-xs text-muted mt-1; }
+  .input {
+    @apply w-full rounded-xl border border-line bg-paper px-3.5 py-3 text-base text-charcoal
+      placeholder:text-[#9a9ea4] transition-colors focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/15;
+  }
+  textarea.input { @apply resize-y leading-relaxed; min-height: 5.5rem; }
+  .btn {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-[15px] font-semibold
+      transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary { @apply bg-navy text-ivory hover:bg-navy-deep; }
+  .btn-secondary { @apply border border-line bg-paper text-charcoal hover:border-navy/40; }
+  .btn-ghost { @apply text-muted hover:bg-charcoal/5 hover:text-charcoal; }
+  .icon-btn {
+    @apply inline-flex size-10 items-center justify-center rounded-lg text-muted transition-colors
+      hover:bg-charcoal/5 hover:text-charcoal disabled:opacity-30 disabled:hover:bg-transparent;
+  }
+  .card { @apply rounded-2xl border border-line bg-paper; }
+  .chip {
+    @apply inline-flex min-h-10 items-center rounded-full border border-line bg-paper px-3.5 text-sm text-charcoal
+      transition-colors hover:border-navy/40;
+  }
+  .chip[aria-pressed='true'], .chip[aria-checked='true'] { @apply border-navy bg-navy text-ivory; }
+}
